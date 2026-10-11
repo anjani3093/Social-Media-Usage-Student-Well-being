@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Social Media Usage &amp; Student Well-being Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════
+       LOADING OVERLAY
+  ══════════════════════════════════════════════ -->
+  <div id="loading-overlay" class="loading-overlay" role="status" aria-live="polite">
+    <div class="loader" aria-hidden="true"></div>
+    <p class="loading-text">Loading dataset…</p>
+    <p class="loading-sub">Parsing 4,500 student records</p>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       1. HEADER
+  ══════════════════════════════════════════════ -->
+  <header class="site-header" role="banner">
+    <div class="header-inner">
+      <div class="header-brand">
+        <div class="header-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="header-title">Social Media Usage &amp; Student Well-being</h1>
+          <p class="header-subtitle">Exploring associations between social media habits, sleep, mental health, and academic performance across 4,500 students · Data is observational — findings describe patterns, not causes</p>
+        </div>
+      </div>
+      <div class="header-meta">
+        <span class="status-dot" id="status-dot" aria-hidden="true"></span>
+        <span class="status-label" id="status-label">Loading…</span>
+        <span class="header-count hidden" id="header-count-wrap">
+          <span id="total-count">—</span> records
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════
+       ERROR BANNER (shown only on fetch failure)
+  ══════════════════════════════════════════════ -->
+  <div id="error-banner" class="hidden" role="alert">
+    <div class="error-inner">
+      <div class="error-icon" aria-hidden="true">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div>
+        <p class="error-title">Could not load <code>data.json</code></p>
+        <p class="error-body">Browser security restrictions prevent loading local JSON files via <code>file://</code>. Run through a local development server:</p>
+        <div class="error-commands">
+          <code>npx serve .</code>
+          <span class="error-or">or</span>
+          <code>python -m http.server 8080</code>
+        </div>
+        <p class="error-body mt-1">Then open <code>http://localhost:3000</code> (npx&nbsp;serve) or <code>http://localhost:8080</code> (Python) in your browser.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       MAIN CONTENT
+  ══════════════════════════════════════════════ -->
+  <main id="main-content" class="hidden main-content" role="main">
+
+    <!-- ══════════════════════════════════════════
+         2. FILTER PANEL
+    ══════════════════════════════════════════ -->
+    <section class="section-block" aria-labelledby="filters-heading">
+      <div class="section-header-row">
+        <div class="section-label-group">
+          <span class="section-icon" aria-hidden="true">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          </span>
+          <h2 class="section-heading" id="filters-heading">Filters</h2>
+        </div>
+        <button id="reset-filters" class="btn-reset" type="button" aria-label="Reset all filters to default">
+          <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          Reset Filters
+        </button>
+      </div>
+
+      <div class="filters-grid">
+        <div class="filter-group">
+          <label class="filter-label" for="filter-level">Academic Level</label>
+          <select id="filter-level" class="filter-select" aria-label="Filter by academic level">
+            <option value="">All levels</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label" for="filter-agegroup">Age Group</label>
+          <select id="filter-agegroup" class="filter-select" aria-label="Filter by age group">
+            <option value="">All ages</option>
+            <option value="15-17">15–17 years</option>
+            <option value="18-21">18–21 years</option>
+            <option value="22-26">22–26 years</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label" for="filter-gender">Gender</label>
+          <select id="filter-gender" class="filter-select" aria-label="Filter by gender">
+            <option value="">All genders</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label" for="filter-platform">Primary Platform</label>
+          <select id="filter-platform" class="filter-select" aria-label="Filter by primary platform">
+            <option value="">All platforms</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label" for="filter-latenight">Late-Night Usage</label>
+          <select id="filter-latenight" class="filter-select" aria-label="Filter by late-night usage">
+            <option value="">All</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label" for="filter-screentime">Screen Time</label>
+          <select id="filter-screentime" class="filter-select" aria-label="Filter by screen time range">
+            <option value="">All ranges</option>
+            <option value="low">Low (0–3 hrs)</option>
+            <option value="moderate">Moderate (3–6 hrs)</option>
+            <option value="high">High (&gt;6 hrs)</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label class="filter-label" for="filter-impact">Overall Impact</label>
+          <select id="filter-impact" class="filter-select" aria-label="Filter by overall impact">
+            <option value="">All</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="filter-footer">
+        <p class="filter-count-text" aria-live="polite">
+          Showing
+          <strong id="filtered-count" class="filter-count-n">—</strong>
+          of
+          <strong id="total-count-filter" class="filter-count-total">—</strong>
+          records
+        </p>
+        <div id="active-filter-chips" class="chips-row" aria-label="Active filters" role="list"></div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         3. KPI OVERVIEW
+    ══════════════════════════════════════════ -->
+    <section aria-labelledby="kpi-heading">
+      <div class="section-label-group mb-4">
+        <span class="section-icon" aria-hidden="true">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </span>
+        <h2 class="section-heading" id="kpi-heading">KPI Overview</h2>
+      </div>
+      <div class="kpi-grid">
+        <div class="kpi-card" role="region" aria-label="Total Respondents">
+          <div class="kpi-icon kpi-icon--blue" aria-hidden="true">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <p class="kpi-label">Total Respondents</p>
+          <p class="kpi-value" id="kpi-respondents">—</p>
+          <p class="kpi-unit" id="kpi-respondents-unit">unique students</p>
+          <p class="kpi-empty hidden" id="kpi-respondents-empty">No records match filters</p>
+        </div>
+        <div class="kpi-card" role="region" aria-label="Average Daily Screen Time">
+          <div class="kpi-icon kpi-icon--violet" aria-hidden="true">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          </div>
+          <p class="kpi-label">Avg Daily Screen Time</p>
+          <p class="kpi-value" id="kpi-usage">—</p>
+          <p class="kpi-unit" id="kpi-usage-unit">hrs / day</p>
+          <p class="kpi-empty hidden" id="kpi-usage-empty">No valid observations</p>
+        </div>
+        <div class="kpi-card" role="region" aria-label="Average Sleep Duration">
+          <div class="kpi-icon kpi-icon--teal" aria-hidden="true">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </div>
+          <p class="kpi-label">Avg Sleep Duration</p>
+          <p class="kpi-value" id="kpi-sleep">—</p>
+          <p class="kpi-unit" id="kpi-sleep-unit">hrs / night</p>
+          <p class="kpi-empty hidden" id="kpi-sleep-empty">No valid observations</p>
+        </div>
+        <div class="kpi-card" role="region" aria-label="Average Mental Health Index">
+          <div class="kpi-icon kpi-icon--green" aria-hidden="true">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          </div>
+          <p class="kpi-label">Avg Mental Health Index</p>
+          <p class="kpi-value" id="kpi-mhi">—</p>
+          <p class="kpi-unit" id="kpi-mhi-unit">score (0–100)</p>
+          <p class="kpi-empty hidden" id="kpi-mhi-empty">No valid observations</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         4. USAGE PATTERNS
+    ══════════════════════════════════════════ -->
+    <section aria-labelledby="usage-heading">
+      <div class="section-label-group mb-4">
+        <span class="section-icon" aria-hidden="true">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        </span>
+        <h2 class="section-heading" id="usage-heading">Usage Patterns</h2>
+      </div>
+      <div class="charts-grid-1">
+        <div class="chart-card" role="region" aria-labelledby="c1-title">
+          <div class="chart-card-header">
+            <div>
+              <h3 class="chart-title" id="c1-title">Daily Screen Time by Platform</h3>
+              <p class="chart-sub">Mean of Daily_Usage_Hours per platform · sorted highest → lowest · hover bars for average &amp; respondent count</p>
+            </div>
+          </div>
+          <div class="chart-container" style="height:280px; position:relative;">
+            <canvas id="chart-c1-platform" aria-label="Horizontal bar chart of average daily screen time by social media platform"></canvas>
+            <div id="chart-c1-platform-empty" class="chart-empty-state hidden" aria-live="polite">No data matches the current filters.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         5. SLEEP AND WELL-BEING
+    ══════════════════════════════════════════ -->
+    <section aria-labelledby="wellbeing-heading">
+      <div class="section-label-group mb-4">
+        <span class="section-icon" aria-hidden="true">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </span>
+        <h2 class="section-heading" id="wellbeing-heading">Sleep &amp; Well-being</h2>
+      </div>
+      <div class="charts-grid-2">
+
+        <!-- Chart 2: Screen Time vs Sleep Duration -->
+        <div class="chart-card" role="region" aria-labelledby="c2-title">
+          <div class="chart-card-header">
+            <div>
+              <h3 class="chart-title" id="c2-title">Screen Time vs Sleep Duration</h3>
+              <p class="chart-sub">Each point represents one respondent with valid data in both variables · dashed line = OLS trend (pattern only, not causal)</p>
+            </div>
+          </div>
+          <div id="c2-stat" class="stat-badge" role="status" aria-live="polite">Pearson r = computing…</div>
+          <p id="chart-c2-scatter-sleep-info" class="chart-missing-note hidden" aria-live="polite"></p>
+          <div class="chart-container mt-3" style="height:280px; position:relative;">
+            <canvas id="chart-c2-scatter-sleep" aria-label="Scatter plot of daily screen time versus sleep duration with trend line"></canvas>
+            <div id="chart-c2-scatter-sleep-empty" class="chart-empty-state hidden" aria-live="polite">No valid data for both variables in the current filter selection.</div>
+          </div>
+        </div>
+
+        <!-- Chart 3: Screen Time vs Perceived Stress -->
+        <div class="chart-card" role="region" aria-labelledby="c3-title">
+          <div class="chart-card-header">
+            <div>
+              <h3 class="chart-title" id="c3-title">Screen Time vs Perceived Stress</h3>
+              <p class="chart-sub">Respondents missing Perceived_Stress_Score are excluded from this chart only · dashed line = OLS trend (not causal)</p>
+            </div>
+          </div>
+          <div id="c3-stat" class="stat-badge" role="status" aria-live="polite">Pearson r = computing…</div>
+          <p id="chart-c3-scatter-stress-info" class="chart-missing-note hidden" aria-live="polite"></p>
+          <div class="chart-container mt-3" style="height:280px; position:relative;">
+            <canvas id="chart-c3-scatter-stress" aria-label="Scatter plot of daily screen time versus perceived stress score with trend line"></canvas>
+            <div id="chart-c3-scatter-stress-empty" class="chart-empty-state hidden" aria-live="polite">No valid observations for both variables in the current filter selection.</div>
+          </div>
+        </div>
+
+        <!-- Chart 4: Sleep Quality by Late-Night Usage -->
+        <div class="chart-card" role="region" aria-labelledby="c4-title">
+          <div class="chart-card-header">
+            <div>
+              <h3 class="chart-title" id="c4-title">Sleep Quality by Late-Night Usage</h3>
+              <p class="chart-sub">Mean Sleep_Quality_Score for respondents who do (Yes) and do not (No) use social media late at night · scale as recorded in dataset · hover for sample size</p>
+            </div>
+          </div>
+          <div class="chart-container mt-3" style="height:260px; position:relative;">
+            <canvas id="chart-c4-sleepquality" aria-label="Bar chart comparing mean sleep quality score between late-night and non-late-night social media users"></canvas>
+            <div id="chart-c4-sleepquality-empty" class="chart-empty-state hidden" aria-live="polite">No valid Sleep_Quality_Score data in the current filter selection.</div>
+          </div>
+        </div>
+
+        <!-- Chart 5: Mental Health Index by Screen Time Group -->
+        <div class="chart-card" role="region" aria-labelledby="c5-title">
+          <div class="chart-card-header">
+            <div>
+              <h3 class="chart-title" id="c5-title">Mental Health Index by Screen Time Group</h3>
+              <p class="chart-sub">Mean Mental_Health_Index per screen-time category · groups are analytical groupings for exploration, not clinical classifications · hover for sample size</p>
+            </div>
+          </div>
+          <div class="chart-container mt-3" style="height:260px; position:relative;">
+            <canvas id="chart-c5-mhi-screentime" aria-label="Bar chart of mean mental health index by screen time group: Low, Moderate, High"></canvas>
+            <div id="chart-c5-mhi-screentime-empty" class="chart-empty-state hidden" aria-live="polite">No valid Mental_Health_Index data in the current filter selection.</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         6. ACADEMIC OUTCOMES & OVERALL IMPACT
+    ══════════════════════════════════════════ -->
+    <section aria-labelledby="academic-heading">
+      <div class="section-label-group mb-4">
+        <span class="section-icon" aria-hidden="true">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+        </span>
+        <h2 class="section-heading" id="academic-heading">Academic Outcomes &amp; Overall Impact</h2>
+      </div>
+      <div class="charts-grid-2">
+
+        <!-- Chart 6: Academic Performance by Screen Time -->
+        <div class="chart-card" role="region" aria-labelledby="c6-title">
+          <div class="chart-card-header">
+            <div>
+              <h3 class="chart-title" id="c6-title">Academic Performance by Screen Time</h3>
+              <p class="chart-sub">Mean Academic_Performance_GPA per screen-time group · missing GPA values excluded from this chart only · y-axis scaled to actual data range · hover for sample size</p>
+            </div>
+          </div>
+          <p id="chart-c6-gpa-screentime-info" class="chart-missing-note hidden" aria-live="polite"></p>
+          <div class="chart-container mt-3" style="height:260px; position:relative;">
+            <canvas id="chart-c6-gpa-screentime" aria-label="Bar chart of mean GPA by screen time group: Low, Moderate, High"></canvas>
+            <div id="chart-c6-gpa-screentime-empty" class="chart-empty-state hidden" aria-live="polite">No valid Academic_Performance_GPA data in the current filter selection.</div>
+          </div>
+        </div>
+
+        <!-- Chart 7: Overall Impact Distribution -->
+        <div class="chart-card" role="region" aria-labelledby="c7-title">
+          <div class="chart-card-header">
+            <div>
+              <h3 class="chart-title" id="c7-title">Overall Impact Distribution</h3>
+              <p class="chart-sub">Distribution of recorded overall-impact responses · these are self-reported or researcher-coded categories, not objective evidence that social media causes a particular outcome</p>
+            </div>
+          </div>
+          <div class="chart-container mt-3" style="height:260px; position:relative;">
+            <canvas id="chart-c7-impact" aria-label="Doughnut chart showing distribution of Beneficial, Neutral, and Negative overall impact responses"></canvas>
+            <div id="chart-c7-impact-empty" class="chart-empty-state hidden" aria-live="polite">No Overall_Impact data in the current filter selection.</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════
+         7. CORRELATION EXPLORER
+    ══════════════════════════════════════════ -->
+    <section aria-labelledby="corr-heading">
+      <div class="section-label-group mb-4">
+        <span class="section-icon" aria-hidden="true">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        </span>
+        <h2 class="section-heading" id="corr-heading">Correlation Explorer</h2>
+      </div>
+      <div class="chart-card" role="region" aria-labelledby="c8-title">
+        <div class="chart-card-header">
+          <div>
+            <h3 class="chart-title" id="c8-title">Pearson Correlation Heatmap</h3>
+            <p class="chart-sub">Pairwise Pearson r between numeric variables · computed from the currently filtered dataset · Student_ID excluded · hover each cell for variable names, r value, and valid pair count</p>
+          </div>
+        </div>
+        <div class="heatmap-legend-row" aria-label="Heatmap colour legend">
+          <span class="legend-label">Correlation scale:</span>
+          <div class="legend-gradient" aria-hidden="true"></div>
+          <div class="legend-ticks" aria-hidden="true">
+            <span>−1.0</span><span>−0.5</span><span>0</span><span>+0.5</span><span>+1.0</span>
+          </div>
+          <div class="legend-words">
+            <span class="legend-swatch" style="background:#c0392b;">Strong negative</span>
+            <span class="legend-swatch" style="background:#f5f5f5;color:#555;border:1px solid #d1d5db;">Near zero</span>
+            <span class="legend-swatch" style="background:#1a56a0;">Strong positive</span>
+          </div>
+        </div>
+        <div id="chart-c8-heatmap" class="overflow-x-auto mt-2" role="img" aria-label="Correlation heatmap table"></div>
+        <p class="chart-note mt-3">Diagonal cells = 1.00 (self-correlation). Cell colour and value show Pearson r. Hover for exact r and valid pair count. Correlations do not imply causation.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ══════════════════════════════════════════════
+       FOOTER
+  ══════════════════════════════════════════════ -->
+  <footer class="site-footer" role="contentinfo">
+    <div class="footer-inner">
+      <p class="footer-title">Social Media Usage &amp; Student Well-being Dashboard</p>
+      <p class="footer-meta">4,500 anonymised student records · Observational data · All visualisations update with active filters · Correlations ≠ causation</p>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+<!-- Code injected by live-server -->
+<script>
+	// <![CDATA[  <-- For SVG support
+	if ('WebSocket' in window) {
+		(function () {
+			function refreshCSS() {
+				var sheets = [].slice.call(document.getElementsByTagName("link"));
+				var head = document.getElementsByTagName("head")[0];
+				for (var i = 0; i < sheets.length; ++i) {
+					var elem = sheets[i];
+					var parent = elem.parentElement || head;
+					parent.removeChild(elem);
+					var rel = elem.rel;
+					if (elem.href && typeof rel != "string" || rel.length == 0 || rel.toLowerCase() == "stylesheet") {
+						var url = elem.href.replace(/(&|\?)_cacheOverride=\d+/, '');
+						elem.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + '_cacheOverride=' + (new Date().valueOf());
+					}
+					parent.appendChild(elem);
+				}
+			}
+			var protocol = window.location.protocol === 'http:' ? 'ws://' : 'wss://';
+			var address = protocol + window.location.host + window.location.pathname + '/ws';
+			var socket = new WebSocket(address);
+			socket.onmessage = function (msg) {
+				if (msg.data == 'reload') window.location.reload();
+				else if (msg.data == 'refreshcss') refreshCSS();
+			};
+			if (sessionStorage && !sessionStorage.getItem('IsThisFirstTime_Log_From_LiveServer')) {
+				console.log('Live reload enabled.');
+				sessionStorage.setItem('IsThisFirstTime_Log_From_LiveServer', true);
+			}
+		})();
+	}
+	else {
+		console.error('Upgrade your browser. This Browser is NOT supported WebSocket for Live-Reloading.');
+	}
+	// ]]>
+</script>
+</body>
+</html>
